@@ -1,0 +1,386 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>陽台植物分布圖</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style> body { margin: 0; } </style>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useCallback, useEffect } = React;
+
+/* localStorage 版的儲存 API（取代 artifact 的 window.storage）*/
+const store = {
+  get: (k) => { try { const v = localStorage.getItem(k); return v == null ? null : { value: v }; } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+};
+
+const ICONS = {
+  hoya: (<g><path d="M28 44 C28 36 27 28 26 20" /><path d="M26 22 c-8 -2 -12 -8 -12 -8 c8 -2 12 2 12 8" /><path d="M27 30 c8 -2 12 -8 12 -8 c-8 -2 -12 2 -12 8" /><path d="M27 38 c-8 -2 -12 -6 -12 -6 c8 -1 12 1 12 6" /></g>),
+  pothos: (<g><path d="M28 44 C28 34 26 26 22 18" /><path d="M22 20 c-6 -4 -7 -11 -7 -11 c7 1 9 6 7 11" /><path d="M26 28 c6 -5 7 -12 7 -12 c5 4 3 11 -7 12" /><path d="M25 36 c-6 -3 -8 -9 -8 -9 c7 1 9 4 8 9" /></g>),
+  dracaena: (<g><path d="M28 44 L28 30" /><path d="M28 32 L14 10 M28 32 L20 8 M28 32 L28 6 M28 32 L36 8 M28 32 L42 10 M28 32 L18 18 M28 32 L38 18" /></g>),
+  birdnest: (<g><path d="M28 44 L28 32" /><path d="M28 34 C16 28 10 16 12 8 C18 14 22 22 28 30" /><path d="M28 34 C40 28 46 16 44 8 C38 14 34 22 28 30" /><path d="M28 32 C24 24 22 16 24 8 M28 32 C32 24 34 16 32 8" /></g>),
+  sansevieria: (<g><path d="M22 44 C20 30 19 18 21 6" /><path d="M28 44 L28 4" /><path d="M34 44 C36 30 37 18 35 6" /><path d="M25 44 C24 32 24 20 25 9" /><path d="M31 44 C32 32 32 20 31 9" /></g>),
+  sansevieriaShort: (<g><path d="M23 44 C22 34 22 26 24 18" /><path d="M28 44 L28 16" /><path d="M33 44 C34 34 34 26 32 18" /></g>),
+  pinnate: (<g><path d="M28 44 L28 14" /><path d="M28 20 L18 14 M28 20 L38 14 M28 26 L16 22 M28 26 L40 22 M28 32 L18 30 M28 32 L38 30" /></g>),
+  parsley: (<g><path d="M28 44 L28 26" /><circle cx="20" cy="18" r="5" /><circle cx="28" cy="13" r="5" /><circle cx="36" cy="18" r="5" /><circle cx="24" cy="24" r="4" /><circle cx="33" cy="24" r="4" /></g>),
+  fern: (<g><path d="M28 44 L28 30" /><path d="M28 30 C18 26 12 16 12 8 C20 12 24 20 28 28" /><path d="M28 30 C38 26 44 16 44 8 C36 12 32 20 28 28" /><path d="M28 30 C26 22 26 14 28 8 M28 30 C30 22 30 14 28 8" /></g>),
+  pennywort: (<g><path d="M22 44 L20 24 M28 44 L28 20 M34 44 L36 26" /><circle cx="20" cy="20" r="5" /><circle cx="28" cy="15" r="6" /><circle cx="36" cy="22" r="5" /></g>),
+  rosemary: (<g><path d="M28 44 L28 20 M28 32 L20 22 M28 32 L36 22 M28 26 L22 16 M28 26 L34 16 M28 20 L24 10 M28 20 L32 10" /><path d="M20 22 l-4 -3 M36 22 l4 -3 M22 16 l-4 -2 M34 16 l4 -2" /></g>),
+  zz: (<g><path d="M22 44 C20 30 20 18 22 8" /><path d="M34 44 C36 30 36 18 34 8" /><path d="M22 14 l-7 -2 M22 20 l-7 -1 M22 26 l-7 0 M22 32 l-7 1" /><path d="M34 14 l7 -2 M34 20 l7 -1 M34 26 l7 0 M34 32 l7 1" /></g>),
+  basil: (<g><path d="M28 44 L28 16" /><path d="M28 22 c-9 -1 -12 -7 -12 -7 c8 -1 11 2 12 7" /><path d="M28 22 c9 -1 12 -7 12 -7 c-8 -1 -11 2 -12 7" /><path d="M28 32 c-9 -1 -12 -6 -12 -6 c8 -1 11 2 12 6" /><path d="M28 32 c9 -1 12 -6 12 -6 c-8 -1 -11 2 -12 6" /></g>),
+  orchid: (<g><path d="M24 44 C18 30 16 16 14 6" /><path d="M30 44 C36 30 38 16 40 6" /><path d="M28 44 C28 32 28 20 28 8" /><ellipse cx="28" cy="42" rx="6" ry="3" /></g>),
+  cutting: (<g><path d="M28 30 L28 8 M28 16 l-7 -5 M28 16 l7 -5 M28 22 l-6 -3 M28 22 l6 -3" /></g>),
+  avocado: (<g><path d="M28 40 L28 12" /><path d="M28 18 c-9 -3 -13 -10 -13 -10 c9 -1 13 4 13 10" /><path d="M28 14 c9 -3 13 -10 13 -10 c-9 -1 -13 4 -13 10" /><ellipse cx="28" cy="40" rx="7" ry="5" /></g>),
+};
+
+function PlantIcon({ icon, size = 48, water = false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" stroke="#4b7355" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      {ICONS[icon]}
+      {water
+        ? <path d="M23 30 L33 30 L33 48 C33 50 31 51 28 51 C25 51 23 50 23 48 Z" fill="#eaf4fb" stroke="#7fb3d5" />
+        : <g><path d="M18 44 L38 44 L35 51 L21 51 Z" fill="#fdfbf6" /><path d="M16 44 L40 44" /></g>}
+    </svg>
+  );
+}
+
+const HYDRO = {
+  dry: { label: "耐旱", badge: "bg-orange-500", desc: "土乾透再澆，怕積水" },
+  mid: { label: "適中", badge: "bg-emerald-600", desc: "表土乾了就澆" },
+  wet: { label: "喜水", badge: "bg-sky-600", desc: "保持濕潤、勿斷水" },
+};
+const SUN = {
+  sun:   { label: "耐曬",   icon: "☀️", desc: "可受午後直射" },
+  part:  { label: "半日照", icon: "⛅", desc: "明亮散光最佳" },
+  shade: { label: "喜陰",   icon: "🌿", desc: "怕強光，需遮蔭" },
+};
+
+const INIT_PLANTS = {
+  1:  { name: "心葉毬蘭", icon: "hoya", zone: "main", x: 30, y: 6, hydro: "dry", sun: "part" },
+  4:  { name: "萊姆黃金葛", icon: "pothos", zone: "main", x: 60, y: 10, hydro: "mid", sun: "part" },
+  9:  { name: "金邊虎尾蘭", icon: "sansevieria", zone: "main", x: 80, y: 12, hydro: "dry", sun: "sun" },
+  2:  { name: "萊姆黃金葛", icon: "pothos", zone: "main", x: 18, y: 22, hydro: "mid", sun: "part" },
+  6:  { name: "山蘇", icon: "birdnest", zone: "main", x: 52, y: 26, hydro: "wet", sun: "shade" },
+  5:  { name: "山蘇", icon: "birdnest", zone: "main", x: 34, y: 38, hydro: "wet", sun: "shade" },
+  7:  { name: "阿波羅千年木", icon: "dracaena", zone: "main", x: 64, y: 38, hydro: "mid", sun: "sun" },
+  3:  { name: "阿波羅千年木", icon: "dracaena", zone: "main", x: 18, y: 50, hydro: "mid", sun: "sun" },
+  10: { name: "小豆樹", icon: "pinnate", zone: "main", x: 78, y: 46, hydro: "mid", sun: "part" },
+  11: { name: "皺葉荷蘭芹", icon: "parsley", zone: "main", x: 60, y: 54, hydro: "wet", sun: "part" },
+  8:  { name: "阿波羅千年木", icon: "dracaena", zone: "main", x: 46, y: 58, hydro: "mid", sun: "sun" },
+  12: { name: "袋鼠蕨", icon: "fern", zone: "main", x: 72, y: 66, hydro: "wet", sun: "shade" },
+  13: { name: "銅錢草", icon: "pennywort", zone: "main", x: 58, y: 78, hydro: "wet", sun: "part" },
+  14: { name: "山蘇", icon: "birdnest", zone: "main", x: 78, y: 82, hydro: "wet", sun: "shade" },
+  15: { name: "迷迭香", icon: "rosemary", zone: "main", x: 64, y: 92, hydro: "dry", sun: "sun" },
+  16: { name: "水培枝條（銀杏木）", icon: "cutting", zone: "ac", x: 18, y: 60, water: true, hydro: "wet", sun: "part" },
+  17: { name: "水培枝條", icon: "cutting", zone: "ac", x: 38, y: 62, water: true, hydro: "wet", sun: "part" },
+  18: { name: "短葉金邊虎尾蘭", icon: "sansevieriaShort", zone: "ac", x: 58, y: 42, hydro: "dry", sun: "sun" },
+  19: { name: "短葉金邊虎尾蘭", icon: "sansevieriaShort", zone: "ac", x: 78, y: 44, hydro: "dry", sun: "sun" },
+  20: { name: "酪梨幼苗", icon: "avocado", zone: "ac", x: 60, y: 76, hydro: "mid", sun: "part" },
+  21: { name: "金錢樹", icon: "zz", zone: "sink", x: 68, y: 48, hydro: "dry", sun: "part" },
+  22: { name: "九層塔", icon: "basil", zone: "sink", x: 46, y: 28, hydro: "wet", sun: "sun" },
+  23: { name: "球根型蘭花", icon: "orchid", zone: "sink", x: 30, y: 62, hydro: "mid", sun: "shade" },
+};
+
+const INIT_ZONES = {
+  sink: { label: "洗手台區", range: "21–23", x: 1, y: 1, w: 38, h: 46, ring: "border-lime-400", bg: "bg-lime-50/60", tag: "bg-lime-100 text-lime-800 border-lime-200" },
+  ac:   { label: "冷氣外機區", range: "16–20", x: 1, y: 50, w: 38, h: 48, ring: "border-amber-400", bg: "bg-amber-50/60", tag: "bg-amber-100 text-amber-800 border-amber-200" },
+  main: { label: "陽台主區", range: "1–15", x: 41, y: 1, w: 58, h: 97, ring: "border-emerald-400", bg: "bg-emerald-50/60", tag: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+};
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+const SUGGESTED = {
+  9:{x:84,y:12}, 15:{x:64,y:10}, 3:{x:86,y:32}, 7:{x:66,y:30},
+  1:{x:84,y:50}, 10:{x:50,y:22}, 4:{x:60,y:52}, 8:{x:84,y:70},
+  6:{x:22,y:14}, 5:{x:22,y:36}, 2:{x:40,y:30}, 12:{x:24,y:60}, 14:{x:24,y:84}, 13:{x:46,y:78}, 11:{x:48,y:92},
+  18:{x:22,y:38}, 19:{x:40,y:38}, 20:{x:60,y:40}, 16:{x:24,y:72}, 17:{x:44,y:74},
+  22:{x:30,y:30}, 21:{x:68,y:34}, 23:{x:32,y:70},
+};
+const SUGGESTED2 = {
+  9:{zone:"main",x:84,y:12}, 22:{zone:"main",x:64,y:10,moved:"洗手台區"}, 15:{zone:"main",x:86,y:30}, 3:{zone:"main",x:66,y:30}, 7:{zone:"main",x:86,y:50}, 8:{zone:"main",x:84,y:70},
+  1:{zone:"main",x:56,y:50}, 10:{zone:"main",x:48,y:22}, 4:{zone:"main",x:58,y:72},
+  6:{zone:"main",x:20,y:12}, 5:{zone:"main",x:22,y:32}, 23:{zone:"main",x:36,y:44,moved:"洗手台區"}, 12:{zone:"main",x:20,y:60}, 14:{zone:"main",x:22,y:84}, 2:{zone:"main",x:42,y:92}, 13:{zone:"main",x:56,y:92}, 11:{zone:"main",x:40,y:22},
+  18:{zone:"ac",x:25,y:45}, 19:{zone:"ac",x:50,y:45}, 20:{zone:"ac",x:75,y:50},
+  16:{zone:"sink",x:35,y:40,moved:"冷氣外機區"}, 17:{zone:"sink",x:65,y:45,moved:"冷氣外機區"}, 21:{zone:"sink",x:50,y:75},
+};
+
+const CARE = {
+  1:  { soil: "多肉專用土，或泥炭土＋珍珠石（重排水）", fert: "均衡觀葉液肥 20-20-20", freq: "春夏每月一次，冬停" },
+  2:  { soil: "觀葉培養土，或泥炭6:珍珠2:蛭石2", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  3:  { soil: "觀葉培養土（排水佳）", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  4:  { soil: "觀葉培養土，或泥炭6:珍珠2:蛭石2", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  5:  { soil: "泥炭/腐葉土＋蛇木屑或樹皮（保濕透氣）", fert: "淡液肥（濃度減半）", freq: "春夏每月一次，宜淡" },
+  6:  { soil: "泥炭/腐葉土＋蛇木屑或樹皮（保濕透氣）", fert: "淡液肥（濃度減半）", freq: "春夏每月一次，宜淡" },
+  7:  { soil: "觀葉培養土（排水佳）", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  8:  { soil: "觀葉培養土（排水佳）", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  9:  { soil: "多肉/仙人掌土，或培養土＋大量粗砂", fert: "均衡液肥（稀薄）", freq: "春夏每月一次，冬停" },
+  10: { soil: "觀葉培養土（排水佳）", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  11: { soil: "蔬菜用培養土（含基肥）", fert: "有機肥／蔬菜肥", freq: "生長期每2-3週" },
+  12: { soil: "泥炭/腐葉土＋蛇木屑（保濕透氣）", fert: "淡液肥（濃度減半）", freq: "春夏每月一次，宜淡" },
+  13: { soil: "一般培養土，底盤可積水（半挺水）", fert: "均衡液肥（稀薄）", freq: "春夏每2-3週" },
+  14: { soil: "泥炭/腐葉土＋蛇木屑或樹皮（保濕透氣）", fert: "淡液肥（濃度減半）", freq: "春夏每月一次，宜淡" },
+  15: { soil: "排水佳的砂質培養土（怕濕）", fert: "有機肥少量即可", freq: "少肥，春季一次" },
+  16: { soil: "免介質，清水水培", fert: "水耕營養液（稀釋）", freq: "依瓶身比例，定期換水" },
+  17: { soil: "免介質，清水水培", fert: "水耕營養液（稀釋）", freq: "依瓶身比例，定期換水" },
+  18: { soil: "多肉/仙人掌土，或培養土＋大量粗砂", fert: "均衡液肥（稀薄）", freq: "春夏每月一次，冬停" },
+  19: { soil: "多肉/仙人掌土，或培養土＋大量粗砂", fert: "均衡液肥（稀薄）", freq: "春夏每月一次，冬停" },
+  20: { soil: "觀葉培養土（疏鬆排水）", fert: "均衡液肥 20-20-20", freq: "春夏每2-4週" },
+  21: { soil: "顆粒粗、透氣：泥炭＋珍珠石＋蛭石，忌黏重田土", fert: "平衡肥 10-10-10", freq: "生長季每月一次，冬停" },
+  22: { soil: "蔬菜用培養土（含基肥）", fert: "有機肥／偏氮催葉", freq: "生長期每2週" },
+  23: { soil: "蘭花介質：樹皮/水苔/蛇木屑（不用土）", fert: "蘭花專用肥，花前轉高磷", freq: "生長期每2週稀薄施" },
+};
+const CARE_GROUPS = [
+  { key:"succ", color:"border-orange-300 bg-orange-50", title:"多肉／耐旱配方", ids:"1、9、15、18、19、21", soil:"重排水：泥炭/椰纖 5 + 珍珠石或粗砂 3 + 發泡煉石 2，最怕積水黏土", fert:"均衡液肥稀薄，春夏每月一次，冬停" },
+  { key:"leafy", color:"border-emerald-300 bg-emerald-50", title:"一般觀葉通用土", ids:"2、3、4、7、8、10、20", soil:"市售觀葉培養土，或泥炭 6 + 珍珠石 2 + 蛭石 2（保水排水均衡）", fert:"均衡液肥 20-20-20，春夏每 2-4 週" },
+  { key:"wet", color:"border-sky-300 bg-sky-50", title:"喜濕保水配方（蕨類為主）", ids:"5、6、11、12、13、14", soil:"泥炭/腐葉土 + 蛇木屑或樹皮，保濕但透氣；銅錢草可半挺水", fert:"淡液肥（濃度減半），每月一次，過濃易燒葉" },
+  { key:"edible", color:"border-lime-300 bg-lime-50", title:"食用香草", ids:"11、15、22", soil:"蔬菜用培養土（含基肥）；迷迭香要更砂質怕濕", fert:"有機肥／蔬菜肥較安心，九層塔可多氮" },
+  { key:"special", color:"border-stone-300 bg-stone-50", title:"特殊介質", ids:"16、17（水培）、23（蘭花）", soil:"水培免土、清水即可；蘭花用樹皮/水苔/蛇木屑等顆粒介質", fert:"水培用水耕營養液；蘭花用蘭花專用肥" },
+];
+
+function MapCanvas({ plants, zones, height, editable, hovered, setHovered, canvasRef, onPointerDown }) {
+  return (
+    <div ref={canvasRef} className="relative w-full rounded-3xl border-2 border-stone-300 bg-[#fbfdf7] shadow-md" style={{ height, touchAction: "none" }}>
+      {Object.entries(zones).map(([zid, z]) => (
+        <div key={zid}
+          onPointerDown={editable ? (e) => onPointerDown(e, "zone-move", zid) : undefined}
+          className={`absolute rounded-2xl border-2 ${z.ring} ${z.bg} ${editable ? "cursor-move" : ""}`}
+          style={{ left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%` }}>
+          <div className={`absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${z.tag} pointer-events-none`}>
+            {editable && <span className="opacity-50">⠿</span>}
+            {z.label}<span className="font-normal opacity-60">{z.range}</span>
+          </div>
+          {zid === "main" && (
+            <div className="pointer-events-none absolute right-0 top-0 z-0 h-4/5 w-4/5 rounded-tr-2xl"
+              style={{ background: "radial-gradient(circle at top right, rgba(251,191,36,0.5) 0%, rgba(251,191,36,0.28) 55%, transparent 82%)" }}>
+              <span className="absolute right-3 top-3 whitespace-nowrap text-[10px] font-bold tracking-wide text-amber-600/90">☀ 午後強光區</span>
+            </div>
+          )}
+          {Object.entries(plants).filter(([, p]) => p.zone === zid).map(([id, p]) => {
+            const active = hovered === id;
+            return (
+              <div key={id}
+                onPointerDown={editable ? (e) => onPointerDown(e, "plant", id) : undefined}
+                onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)}
+                className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+                <div className={`relative rounded-full transition ${active ? "bg-white shadow-md ring-2 ring-emerald-300" : p.moved ? "border-2 border-dashed border-rose-400" : ""}`}>
+                  <PlantIcon icon={p.icon} water={p.water} size={46} />
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[9px] shadow ring-1 ring-stone-200" title={`耐曬：${SUN[p.sun].label}`}>{SUN[p.sun].icon}</span>
+                  {p.moved && <span className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow" title={`由 ${p.moved} 搬入`}>↪</span>}
+                </div>
+                <span className={`-mt-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white ${HYDRO[p.hydro].badge}`}>{id}</span>
+                {active && <span className="absolute top-full z-20 mt-0.5 whitespace-nowrap rounded bg-stone-800 px-2 py-0.5 text-[11px] text-white">{p.name}</span>}
+              </div>
+            );
+          })}
+          {editable && (
+            <div onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, "zone-resize", zid); }}
+              className="absolute bottom-0 right-0 z-10 h-5 w-5 cursor-nwse-resize rounded-tl-lg bg-stone-300/70"
+              style={{ clipPath: "polygon(100% 0,100% 100%,0 100%)" }} title="拖曳調整大小" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [plants, setPlants] = useState(INIT_PLANTS);
+  const [zones, setZones] = useState(INIT_ZONES);
+  const [editMode, setEditMode] = useState(true);
+  const [hovered, setHovered] = useState(null);
+  const [view, setView] = useState("map");
+  const [saveState, setSaveState] = useState("idle");
+  const [canvasH, setCanvasH] = useState(480);
+  const canvasRef = useRef(null);
+  const drag = useRef(null);
+  const zonesRef = useRef(zones);
+  zonesRef.current = zones;
+
+  useEffect(() => {
+    try {
+      const res = store.get("balcony-layout");
+      if (res && res.value) {
+        const data = JSON.parse(res.value);
+        if (data.plants) setPlants((prev) => { const n = { ...prev }; for (const id in data.plants) if (n[id]) n[id] = { ...n[id], x: data.plants[id].x, y: data.plants[id].y, zone: data.plants[id].zone ?? n[id].zone }; return n; });
+        if (data.zones) setZones((prev) => { const n = { ...prev }; for (const z in data.zones) if (n[z]) n[z] = { ...n[z], ...data.zones[z] }; return n; });
+        if (typeof data.canvasH === "number") setCanvasH(data.canvasH);
+      }
+    } catch {}
+  }, []);
+
+  const save = () => {
+    setSaveState("saving");
+    const sp = {}; for (const id in plants) sp[id] = { x: plants[id].x, y: plants[id].y, zone: plants[id].zone };
+    const sz = {}; for (const z in zones) { const { x, y, w, h } = zones[z]; sz[z] = { x, y, w, h }; }
+    const ok = store.set("balcony-layout", JSON.stringify({ plants: sp, zones: sz, canvasH }));
+    if (ok) { setSaveState("saved"); setTimeout(() => setSaveState("idle"), 1800); } else { setSaveState("idle"); alert("儲存失敗"); }
+  };
+
+  const onPointerDown = (e, kind, id) => {
+    if (!editMode) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = canvasRef.current.getBoundingClientRect();
+    drag.current = { kind, id, rect, startX: e.clientX, startY: e.clientY,
+      orig: kind === "plant" ? { ...plants[id] } : kind === "canvas-resize" ? { h: canvasH } : { ...zones[id] } };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+  const onPointerMove = useCallback((e) => {
+    const d = drag.current; if (!d) return;
+    if (d.kind === "canvas-resize") { setCanvasH(clamp(d.orig.h + (e.clientY - d.startY), 280, 1000)); return; }
+    const dxPct = ((e.clientX - d.startX) / d.rect.width) * 100;
+    const dyPct = ((e.clientY - d.startY) / d.rect.height) * 100;
+    if (d.kind === "plant") setPlants((prev) => { const p = prev[d.id]; const zb = zonesRef.current[p.zone]; return { ...prev, [d.id]: { ...p, x: clamp(d.orig.x + (dxPct / zb.w) * 100, 3, 97), y: clamp(d.orig.y + (dyPct / zb.h) * 100, 3, 97) } }; });
+    else if (d.kind === "zone-move") setZones((prev) => { const z = prev[d.id]; return { ...prev, [d.id]: { ...z, x: clamp(d.orig.x + dxPct, 0, 100 - z.w), y: clamp(d.orig.y + dyPct, 0, 100 - z.h) } }; });
+    else if (d.kind === "zone-resize") setZones((prev) => { const z = prev[d.id]; return { ...prev, [d.id]: { ...z, w: clamp(d.orig.w + dxPct, 15, 100 - z.x), h: clamp(d.orig.h + dyPct, 15, 100 - z.y) } }; });
+  }, []);
+  const onPointerUp = useCallback(() => { drag.current = null; window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); }, [onPointerMove]);
+
+  const reset = () => { setPlants(INIT_PLANTS); setZones(INIT_ZONES); setCanvasH(480); };
+
+  const suggestedPlants = {}; for (const id in plants) suggestedPlants[id] = { ...plants[id], ...(SUGGESTED[id] || {}) };
+  const suggestedPlants2 = {}; for (const id in plants) suggestedPlants2[id] = { ...plants[id], ...(SUGGESTED2[id] || {}) };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#f4f6ef] to-[#eef2e6] p-4 font-sans">
+      <div className="mx-auto max-w-4xl">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold text-stone-700">陽台植物分布圖</h1>
+            <p className="text-xs text-stone-400">共 23 株 · 編號顏色 = 喜水性</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saveState === "saving"} className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition ${saveState === "saved" ? "bg-sky-600 text-white" : "bg-stone-700 text-white"}`}>{saveState === "saving" ? "儲存中…" : saveState === "saved" ? "✓ 已儲存" : "💾 儲存版面"}</button>
+            <button onClick={() => setEditMode((v) => !v)} className={`rounded-full px-4 py-1.5 text-sm font-semibold shadow-sm transition ${editMode ? "bg-emerald-600 text-white" : "bg-white text-stone-600 border border-stone-300"}`}>{editMode ? "✏️ 編輯中" : "🔒 檢視模式"}</button>
+            <button onClick={reset} className="rounded-full border border-stone-300 bg-white px-4 py-1.5 text-sm font-semibold text-stone-600 shadow-sm">重設</button>
+          </div>
+        </header>
+
+        <div className="mb-3 flex gap-2">
+          <button onClick={() => setView("map")} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${view === "map" ? "bg-emerald-600 text-white shadow-sm" : "bg-white text-stone-500 border border-stone-300"}`}>🗺️ 分布圖</button>
+          <button onClick={() => setView("care")} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${view === "care" ? "bg-emerald-600 text-white shadow-sm" : "bg-white text-stone-500 border border-stone-300"}`}>🪴 介質＋肥料</button>
+        </div>
+
+        {view === "care" && (
+          <div>
+            <p className="mb-3 text-center text-xs tracking-widest text-stone-400">── 介質分群速查 ──</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {CARE_GROUPS.map((g) => (
+                <div key={g.key} className={`rounded-2xl border-2 ${g.color} p-4 shadow-sm`}>
+                  <div className="mb-1 flex items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-bold text-stone-700">{g.title}</h3>
+                    <span className="text-[11px] text-stone-400">編號 {g.ids}</span>
+                  </div>
+                  <p className="text-xs text-stone-600"><b className="text-stone-500">介質：</b>{g.soil}</p>
+                  <p className="mt-0.5 text-xs text-stone-600"><b className="text-stone-500">肥料：</b>{g.fert}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mb-3 mt-6 text-center text-xs tracking-widest text-stone-400">── 各株介質＋肥料附表 ──</p>
+            <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white/80 shadow-sm">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead><tr className="border-b-2 border-stone-200 bg-stone-50 text-xs text-stone-500">
+                  <th className="px-3 py-2.5 font-semibold">編號</th><th className="px-3 py-2.5 font-semibold">名稱</th><th className="px-3 py-2.5 font-semibold">介質配方</th><th className="px-3 py-2.5 font-semibold">肥料</th><th className="px-3 py-2.5 font-semibold whitespace-nowrap">施肥頻率</th>
+                </tr></thead>
+                <tbody>
+                  {Object.keys(CARE).sort((a, b) => Number(a) - Number(b)).map((id) => {
+                    const p = plants[id]; const c = CARE[id]; const active = hovered === id;
+                    return (
+                      <tr key={id} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)} className={`border-b border-stone-100 align-top transition ${active ? "bg-emerald-50" : ""}`}>
+                        <td className="px-3 py-2.5"><span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white ${HYDRO[p.hydro].badge}`}>{id}</span></td>
+                        <td className="px-3 py-2.5 whitespace-nowrap font-medium text-stone-700">{p.name}<span className="ml-1 text-xs" title={`耐曬：${SUN[p.sun].label}`}>{SUN[p.sun].icon}</span></td>
+                        <td className="px-3 py-2.5 text-stone-600">{c.soil}</td>
+                        <td className="px-3 py-2.5 text-stone-600">{c.fert}</td>
+                        <td className="px-3 py-2.5 text-stone-500">{c.freq}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">通則：施肥集中春夏生長期，秋冬減量或停肥；液肥寧稀勿濃，蕨類與多肉尤其要淡。耐旱／多肉類介質重排水、忌積水；蕨類與喜水類介質保濕但仍需透氣。食用香草建議用有機肥較安心。</p>
+          </div>
+        )}
+
+        {view === "map" && (<React.Fragment>
+          {editMode && <p className="mb-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">拖曳<b>大框框底部中央</b>的把手可調整整體高度；拖曳<b>區塊空白處</b>整塊移動、<b>植物</b>在區塊內移動、區塊<b>右下角</b>把手調整區塊大小。調整好後按「💾 儲存版面」，下次打開會自動還原。</p>}
+
+          <div className="relative">
+            <MapCanvas plants={plants} zones={zones} height={canvasH} editable={editMode} hovered={hovered} setHovered={setHovered} canvasRef={canvasRef} onPointerDown={onPointerDown} />
+            {editMode && <div onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, "canvas-resize"); }} className="absolute -bottom-2 left-1/2 z-20 flex h-4 w-16 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-stone-300 bg-white shadow-sm" title="拖曳調整整體高度"><div className="h-0.5 w-8 rounded-full bg-stone-400" /></div>}
+          </div>
+
+          <div className="mt-7">
+            <div className="mb-2 flex items-center justify-center gap-2"><span className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-bold text-white">🌱 建議擺放區</span><span className="text-xs text-stone-400">依耐曬程度 + 喜水性重新排列</span></div>
+            <MapCanvas plants={suggestedPlants} zones={zones} height={canvasH} editable={false} hovered={hovered} setHovered={setHovered} canvasRef={null} onPointerDown={() => {}} />
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">排列原則：午後強光集中在主區<b>右上角</b>（太陽左下升、右上落），所以右上放最耐曬 ☀️（虎尾蘭、千年木、迷迭香）；喜陰 🌿（山蘇、袋鼠蕨）退到左側／下方避開直射；喜水 🔵 集中左下，方便一起澆水。此區為固定建議，不可拖曳。</p>
+          </div>
+
+          <div className="mt-7">
+            <div className="mb-2 flex items-center justify-center gap-2"><span className="rounded-full bg-rose-500 px-3 py-1 text-sm font-bold text-white">🔀 建議擺放區 2（跨區）</span><span className="text-xs text-stone-400">含跨區搬移 · ↪ 標記為換區植物</span></div>
+            <MapCanvas plants={suggestedPlants2} zones={zones} height={canvasH} editable={false} hovered={hovered} setHovered={setHovered} canvasRef={null} onPointerDown={() => {}} />
+            <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              <p className="mb-1 font-semibold">跨區搬移建議（↪ 紅色虛線框）：</p>
+              <ul className="space-y-0.5">
+                <li>• <b>22 九層塔</b>：洗手台區 → 主區強光帶（☀️ 喜曬、能吃水，越曬長越好，採收也方便）</li>
+                <li>• <b>23 球根蘭花</b>：洗手台區 → 主區左內側陰涼處（🌿 喜陰，避開洗手台較強的光）</li>
+                <li>• <b>16、17 水培枝條</b>：冷氣外機區 → 洗手台區（換水取水方便，避免外機熱風使水變質長藻）</li>
+              </ul>
+              <p className="mt-1.5 text-[11px] text-rose-500">※ 搬移後冷氣外機區只留耐曬的短葉虎尾蘭與酪梨；洗手台區改放水培＋金錢樹。實際可行性請依各區空間與冷氣使用情況再評估。</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-stone-200 bg-white/70 p-3 shadow-sm">
+              <p className="mb-2 text-center text-xs tracking-widest text-stone-400">── 編號顏色 = 喜水性 ──</p>
+              <div className="flex flex-col gap-1.5">
+                {Object.values(HYDRO).map((h) => (<div key={h.label} className="flex items-center gap-2"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${h.badge}`}>#</span><span className="text-sm font-semibold text-stone-700">{h.label}</span><span className="text-xs text-stone-400">{h.desc}</span></div>))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-stone-200 bg-white/70 p-3 shadow-sm">
+              <p className="mb-2 text-center text-xs tracking-widest text-stone-400">── 角落圖示 = 耐曬程度 ──</p>
+              <div className="flex flex-col gap-1.5">
+                {Object.values(SUN).map((s) => (<div key={s.label} className="flex items-center gap-2"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-sm shadow ring-1 ring-stone-200">{s.icon}</span><span className="text-sm font-semibold text-stone-700">{s.label}</span><span className="text-xs text-stone-400">{s.desc}</span></div>))}
+              </div>
+              <p className="mt-2 text-[10px] text-amber-600/80">※ 主區右上角為午後強光區，喜陰 🌿 植物建議避開或遮蔭。</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-4">
+            {["main", "ac", "sink"].map((zid) => {
+              const z = zones[zid];
+              const ids = Object.keys(plants).filter((id) => plants[id].zone === zid).sort((a, b) => Number(a) - Number(b));
+              return (
+                <div key={zid} className="rounded-2xl border border-stone-200 bg-white/70 p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2"><span className={`rounded-full border px-3 py-1 text-sm font-bold ${z.tag}`}>{z.label}</span><span className="text-xs text-stone-400">編號 {z.range}</span></div>
+                  <ul className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {ids.map((id) => {
+                      const p = plants[id]; const active = hovered === id;
+                      return (
+                        <li key={id} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition ${active ? "bg-emerald-50" : "hover:bg-stone-50"}`}>
+                          <PlantIcon icon={p.icon} water={p.water} size={34} />
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${HYDRO[p.hydro].badge}`}>{id}</span>
+                          <span className="text-sm text-stone-700">{p.name}</span>
+                          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[10px] text-stone-400"><span title={`耐曬：${SUN[p.sun].label}`}>{SUN[p.sun].icon}</span>{HYDRO[p.hydro].label}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </React.Fragment>)}
+
+        <footer className="mt-5 text-center text-xs text-stone-300">清新植物圖鑑紀錄 · 現況（可編輯）· 建議 1（區內微調）· 建議 2（跨區搬移）</footer>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
