@@ -1,6 +1,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>陽台植物分布圖</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪴</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -93,17 +94,27 @@ const INIT_ZONES = {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 const SUGGESTED = {
-  9:{x:84,y:12}, 15:{x:64,y:10}, 3:{x:86,y:32}, 7:{x:66,y:30},
-  1:{x:84,y:50}, 10:{x:50,y:22}, 4:{x:60,y:52}, 8:{x:84,y:70},
-  6:{x:22,y:14}, 5:{x:22,y:36}, 2:{x:40,y:30}, 12:{x:24,y:60}, 14:{x:24,y:84}, 13:{x:46,y:78}, 11:{x:48,y:92},
+  // 右側／右下 = 午後強光帶，放最耐曬 ☀️
+  9:{x:84,y:20}, 15:{x:86,y:48}, 3:{x:82,y:70}, 7:{x:86,y:88},
+  // 半日照 ⛅ 放中段過渡
+  1:{x:62,y:14}, 10:{x:64,y:38}, 4:{x:60,y:60}, 8:{x:62,y:84},
+  // 喜陰 🌿 + 喜水 放左側／內側（最不受強光）
+  6:{x:18,y:16}, 5:{x:20,y:40}, 2:{x:38,y:28}, 12:{x:20,y:64}, 14:{x:18,y:88}, 13:{x:40,y:74}, 11:{x:40,y:52},
+  // 冷氣外機區
   18:{x:22,y:38}, 19:{x:40,y:38}, 20:{x:60,y:40}, 16:{x:24,y:72}, 17:{x:44,y:74},
+  // 洗手台區
   22:{x:30,y:30}, 21:{x:68,y:34}, 23:{x:32,y:70},
 };
 const SUGGESTED2 = {
-  9:{zone:"main",x:84,y:12}, 22:{zone:"main",x:64,y:10,moved:"洗手台區"}, 15:{zone:"main",x:86,y:30}, 3:{zone:"main",x:66,y:30}, 7:{zone:"main",x:86,y:50}, 8:{zone:"main",x:84,y:70},
-  1:{zone:"main",x:56,y:50}, 10:{zone:"main",x:48,y:22}, 4:{zone:"main",x:58,y:72},
-  6:{zone:"main",x:20,y:12}, 5:{zone:"main",x:22,y:32}, 23:{zone:"main",x:36,y:44,moved:"洗手台區"}, 12:{zone:"main",x:20,y:60}, 14:{zone:"main",x:22,y:84}, 2:{zone:"main",x:42,y:92}, 13:{zone:"main",x:56,y:92}, 11:{zone:"main",x:40,y:22},
+  // 主區右側／右下強光帶 = 耐曬 ☀️
+  9:{zone:"main",x:84,y:20}, 22:{zone:"main",x:86,y:42,moved:"洗手台區"}, 15:{zone:"main",x:82,y:64}, 3:{zone:"main",x:86,y:84}, 7:{zone:"main",x:68,y:30},
+  // 中段半日照 ⛅
+  1:{zone:"main",x:60,y:52}, 10:{zone:"main",x:64,y:14}, 4:{zone:"main",x:58,y:74}, 8:{zone:"main",x:62,y:90},
+  // 左側／內側陰涼（喜陰 🌿 + 喜水）
+  6:{zone:"main",x:18,y:14}, 5:{zone:"main",x:20,y:34}, 23:{zone:"main",x:36,y:44,moved:"洗手台區"}, 12:{zone:"main",x:18,y:60}, 14:{zone:"main",x:18,y:84}, 2:{zone:"main",x:40,y:90}, 13:{zone:"main",x:40,y:72}, 11:{zone:"main",x:40,y:24},
+  // 冷氣外機區
   18:{zone:"ac",x:25,y:45}, 19:{zone:"ac",x:50,y:45}, 20:{zone:"ac",x:75,y:50},
+  // 洗手台區
   16:{zone:"sink",x:35,y:40,moved:"冷氣外機區"}, 17:{zone:"sink",x:65,y:45,moved:"冷氣外機區"}, 21:{zone:"sink",x:50,y:75},
 };
 
@@ -153,9 +164,11 @@ function MapCanvas({ plants, zones, height, editable, hovered, setHovered, canva
             {z.label}<span className="font-normal opacity-60">{z.range}</span>
           </div>
           {zid === "main" && (
-            <div className="pointer-events-none absolute right-0 top-0 z-0 h-4/5 w-4/5 rounded-tr-2xl"
-              style={{ background: "radial-gradient(circle at top right, rgba(251,191,36,0.5) 0%, rgba(251,191,36,0.28) 55%, transparent 82%)" }}>
-              <span className="absolute right-3 top-3 whitespace-nowrap text-[10px] font-bold tracking-wide text-amber-600/90">☀ 午後強光區</span>
+            <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-2xl">
+              <div className="absolute inset-0"
+                style={{ background: "linear-gradient(255deg, rgba(251,191,36,0.5) 0%, rgba(251,191,36,0.34) 22%, rgba(251,191,36,0.16) 45%, transparent 68%)" }} />
+              <span className="absolute right-2 top-2 whitespace-nowrap text-[10px] font-bold tracking-wide text-amber-600/90">☀ 午後強光帶</span>
+              <span className="absolute bottom-2 left-3 whitespace-nowrap text-[9px] font-semibold text-amber-700/70">← 午後沿此方向往內側掃（右下→左上）</span>
             </div>
           )}
           {Object.entries(plants).filter(([, p]) => p.zone === zid).map(([id, p]) => {
@@ -317,7 +330,7 @@ function App() {
           <div className="mt-7">
             <div className="mb-2 flex items-center justify-center gap-2"><span className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-bold text-white">🌱 建議擺放區</span><span className="text-xs text-stone-400">依耐曬程度 + 喜水性重新排列</span></div>
             <MapCanvas plants={suggestedPlants} zones={zones} height={canvasH} editable={false} hovered={hovered} setHovered={setHovered} canvasRef={null} onPointerDown={() => {}} />
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">排列原則：午後強光集中在主區<b>右上角</b>（太陽左下升、右上落），所以右上放最耐曬 ☀️（虎尾蘭、千年木、迷迭香）；喜陰 🌿（山蘇、袋鼠蕨）退到左側／下方避開直射；喜水 🔵 集中左下，方便一起澆水。此區為固定建議，不可拖曳。</p>
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">排列原則（依 2:30 實景修正）：午後強光帶從<b>右側欄杆往主區內側（左）掃</b>，整個下午<b>右側／右下最曬</b>。所以右側放最耐曬 ☀️（虎尾蘭、迷迭香、千年木）；喜陰 🌿（山蘇、袋鼠蕨）退到<b>左側／內側</b>陰涼處；喜水 🔵 集中左側方便澆水。此區為固定建議，不可拖曳。</p>
           </div>
 
           <div className="mt-7">
@@ -346,7 +359,7 @@ function App() {
               <div className="flex flex-col gap-1.5">
                 {Object.values(SUN).map((s) => (<div key={s.label} className="flex items-center gap-2"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-sm shadow ring-1 ring-stone-200">{s.icon}</span><span className="text-sm font-semibold text-stone-700">{s.label}</span><span className="text-xs text-stone-400">{s.desc}</span></div>))}
               </div>
-              <p className="mt-2 text-[10px] text-amber-600/80">※ 主區右上角為午後強光區，喜陰 🌿 植物建議避開或遮蔭。</p>
+              <p className="mt-2 text-[10px] text-amber-600/80">※ 主區午後強光帶從右側欄杆往內側掃（右下最曬），喜陰 🌿 植物建議移到左側／內側。</p>
             </div>
           </div>
 
